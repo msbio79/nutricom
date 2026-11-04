@@ -268,33 +268,6 @@ body.theme-dark .cat-tab.active {
 }
 
 /* 토글 그룹 (간편 모형 vs 화학 구조식) */
-.toggle-group {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  background-color: var(--bg-card);
-  padding: 3px;
-  border-radius: 8px;
-}
-
-.toggle-btn {
-  padding: 8px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.toggle-btn.active {
-  background-color: var(--primary);
-  color: #ffffff;
-  font-weight: 700;
-  box-shadow: var(--shadow-sm);
-}
 
 /* 카테고리 패널 전환 */
 .category-panel {
@@ -417,19 +390,6 @@ body.theme-dark .cat-tab.active {
   transform: translateX(3px);
 }
 
-.preset-btn.highlight {
-  border-color: var(--primary);
-  background-color: var(--primary-light);
-  color: var(--primary-text);
-  font-weight: 600;
-}
-
-body.theme-dark .preset-btn.highlight {
-  background-color: rgba(59, 130, 246, 0.15);
-  color: #93c5fd;
-  border-color: #3b82f6;
-}
-
 /* 아미노산 20종 팔레트 */
 .amino-group-desc {
   font-size: 12px;
@@ -491,55 +451,7 @@ body.theme-dark .preset-btn.highlight {
 .aa-ac { border-left: 3px solid #ef4444; } /* 산성 */
 .aa-ba { border-left: 3px solid #3b82f6; } /* 염기성 */
 
-/* ==========================================================================
-   캔버스 제어 버튼 (초기화 및 분리)
-   ========================================================================== */
-.action-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 11px 14px;
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
-  background-color: var(--bg-card);
-  color: var(--text-main);
-  font-size: 13.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.action-btn:hover {
-  transform: translateY(-1px);
-}
-
-.action-btn.warn-btn {
-  border-color: #f59e0b;
-  background-color: rgba(245, 158, 11, 0.1);
-  color: #d97706;
-}
-
-.action-btn.warn-btn:hover {
-  background-color: rgba(245, 158, 11, 0.2);
-}
-
-.action-btn.danger-btn {
-  border-color: #ef4444;
-  background-color: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
-}
-
-.action-btn.danger-btn:hover {
-  background-color: rgba(239, 68, 68, 0.2);
-}
-
+/* 사이드바 접힘 시 나타나는 빠른 비우기 버튼 */
 .float-btn.quick-action {
   background-color: var(--bg-card);
   color: var(--text-dim);
@@ -548,19 +460,6 @@ body.theme-dark .preset-btn.highlight {
 .float-btn.quick-action:hover {
   color: #ef4444;
   border-color: #fca5a5;
-}
-
-/* 가이드 카드 */
-.guide-card {
-  font-size: 12.5px;
-  color: var(--text-dim);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.guide-item strong {
-  color: var(--text-main);
 }
 
 /* ==========================================================================
@@ -826,47 +725,6 @@ body.theme-dark .preset-btn.highlight {
   border-color: #ef4444;
 }
 
-/* 반응 배너 (화면 중앙 상단 안내 토스트) */
-.reaction-banner {
-  position: absolute;
-  top: 72px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 40;
-  pointer-events: none;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.banner-content {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background-color: rgba(15, 23, 42, 0.88);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: white;
-  padding: 8px 18px;
-  border-radius: 30px;
-  box-shadow: var(--shadow-lg);
-  font-size: 14.5px;
-  font-weight: 600;
-}
-
-body.theme-light .banner-content {
-  background-color: rgba(255, 255, 255, 0.94);
-  color: #0f172a;
-  border: 1px solid var(--border-strong);
-}
-
-.banner-badge {
-  background-color: #2563eb;
-  color: white;
-  font-size: 11px;
-  font-weight: 800;
-  padding: 3px 8px;
-  border-radius: 12px;
-}
-
 /* 캔버스 래퍼 및 레이어 구조 */
 #canvas-wrapper {
   position: absolute;
@@ -974,59 +832,6 @@ body.theme-light .banner-content {
   .amino-palette {
     grid-template-columns: repeat(3, 1fr);
   }
-
-  .reaction-banner {
-    top: 60px;
-    width: 90%;
-  }
-
-  .banner-content {
-    font-size: 13px;
-    padding: 6px 12px;
-  }
-}
-
-
-/* ==========================================================================
-   단계별 진행 제어 (사이드바)
-   ========================================================================== */
-.step-ctrl-grid {
-  display: grid;
-  grid-template-columns: 1.3fr 1fr 1fr;
-  gap: 6px;
-}
-
-.step-btn {
-  padding: 10px 8px;
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
-  background-color: var(--bg-card);
-  color: var(--text-main);
-  font-size: 13.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.step-btn:hover {
-  background-color: var(--bg-card-hover);
-}
-
-.step-btn.play {
-  background-color: var(--primary);
-  border-color: var(--primary);
-  color: #ffffff;
-}
-
-.step-btn.play:hover {
-  background-color: var(--primary-hover);
-}
-
-.step-status {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-align: center;
 }
 
 /* 사이드바 접힘 시 빠른 비우기 버튼 표시 */
@@ -1361,4 +1166,22 @@ body.theme-dark .preset-btn.active {
 .mol-badge.membrane {
   background: linear-gradient(135deg, #0ea5e9, #0284c7);
   font-size: 12px;
+}
+
+/* 판서 펜 '기본색': 밝은 화면에서는 검정, 어두운 화면에서는 흰색으로 그려짐 */
+.color-dot.auto-dot {
+  background: linear-gradient(135deg, #1e293b 0 50%, #ffffff 50% 100%);
+  border: 1px solid #94a3b8;
+}
+
+.color-dot.auto-dot.active {
+  border: 2px solid var(--text-main);
+}
+
+/* 레이저 포인터 버튼 (켜졌을 때 빨갛게 빛남) */
+.tool-sub-btn.laser-btn.active {
+  background-color: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.7);
 }

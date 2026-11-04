@@ -4,8 +4,9 @@
  * - 교과서 화학식(하워스 투영식) / 간편 모형 두 가지 표시 모드
  * - 자석 스냅(탈수 축합, H₂O 1회 방출)
  * - 더블클릭/더블탭 분리(가수분해, H₂O 첨가) 및 단독 분자 삭제
- * - 단계별 진행(이전 / 다음 / 자동 재생 / 처음으로)
- * - Pointer Events 기반 마우스·터치·펜 통합 입력
+ * - 단계별 진행(이전 / 다음 / 자동 재생)
+ * - Pointer Events 기반 마우스·터치·펜(애플 펜슬) 통합 입력, 펜슬 사용 중 손바닥 무시
+ * - 판서: 펜 · 레이저 포인터(잠시 후 서서히 사라짐) · 지우개
  * ============================================================================
  */
 
@@ -21,7 +22,7 @@
     { code: 'Val', name: '발린', rGroup: '— CH(CH₃)₂', type: 'np' },
     { code: 'Leu', name: '류신', rGroup: '— CH₂CH(CH₃)₂', type: 'np' },
     { code: 'Ile', name: '아이소류신', rGroup: '— CH(CH₃)CH₂CH₃', type: 'np' },
-    { code: 'Pro', name: '프롤린', rGroup: '고리형 사슬', type: 'np' },
+    { code: 'Pro', name: '프롤린', rGroup: '—(CH₂)₃— N과 고리', type: 'np' },
     { code: 'Phe', name: '페닐알라닌', rGroup: '— CH₂—C₆H₅', type: 'np' },
     { code: 'Tyr', name: '티로신', rGroup: '— CH₂—C₆H₄—OH', type: 'p' },
     { code: 'Trp', name: '트립토판', rGroup: '인돌 고리', type: 'np' },
@@ -62,7 +63,10 @@
     penColor: '#ef4444',
     penWidth: 3,
     isEraser: false,
+    isLaser: false,     // 레이저 포인터: 쓴 뒤 잠시 후 서서히 사라지는 필기
     strokes: [],
+    laserStrokes: [],   // 사라지는 중인 레이저 필기
+    lastLaserEnd: 0,    // 마지막 레이저 필기를 끝낸 시각 (이어 쓰는 동안은 함께 유지)
     currentStroke: null,
 
     // 개체
@@ -79,10 +83,13 @@
     lastPinchCenter: null,
     draggedMol: null,
     dragOffset: { x: 0, y: 0 },
-    lastPointerWorld: { x: 0, y: 0 },
+    dragMoved: false,   // 누른 뒤 실제로 움직였는가 (단순 클릭과 드래그 구분)
+    downScreen: { x: 0, y: 0 },
     isPanning: false,
     panStart: { x: 0, y: 0 },
-    lastTap: { time: 0, mol: null },
+    lastTap: { time: 0, mol: null, x: 0, y: 0 },
+    recentSplits: [],   // 방금 끊어진 결합 (동시에 여러 결합을 분리할 때 사슬 정렬 유지용)
+    stepCache: { key: '', more: false },
 
     // 단계 진행
     currentPreset: null,
@@ -147,6 +154,7 @@
     colorDots: document.querySelectorAll('.color-dot'),
     widthBtns: document.querySelectorAll('.width-btn'),
     eraserBtn: $('eraserBtn'),
+    laserBtn: $('laserBtn'),
     clearDrawBtn: $('clearDrawBtn'),
 
     canvasWrapper: $('canvas-wrapper'),
@@ -168,6 +176,10 @@
   function init() {
     setupAminoAcidPalette();
     bindEventListeners();
+    // 좁은 화면(휴대폰)에서는 메뉴가 캔버스를 덮으므로 접은 상태로 시작
+    if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+      dom.sidebar.classList.add('collapsed');
+    }
     resizeCanvases();
     window.addEventListener('resize', resizeCanvases);
     // 메뉴가 접히는 애니메이션 동안에도 캔버스 크기 변화를 따라가며 가운데 유지
@@ -619,13 +631,16 @@
     const isFA = mol.subType === 'fatty_sat' || mol.subType === 'fatty_unsat';
     if (!isP && !isFA) return;
     if (state.bonds.some(b => b.mol2 === mol)) return;
-    const off = isP ? state.PHOSPHATE_OFFSET_X : state.ESTER_OFFSET_X;
+    // 인산기는 글리세롤 오른쪽(OH에 겹침)과 왼쪽(결합 후 자리) 모두 결합 위치로 인정되므로 둘 다 확인
+    const offs = isP ? [state.PHOSPHATE_OFFSET_X, state.PHOSPHATE_BOND_X] : [state.ESTER_OFFSET_X];
     let gly = null, nearSlot = null, best = Infinity;
     state.molecules.forEach(g => {
       if (g.subType !== 'glycerol') return;
       [-75, 0, 75].forEach(slot => {
-        const d = Math.hypot(mol.x - (g.x + off), mol.y - (g.y + slot));
-        if (d < best) { best = d; gly = g; nearSlot = slot; }
+        offs.forEach(off => {
+          const d = Math.hypot(mol.x - (g.x + off), mol.y - (g.y + slot));
+          if (d < best) { best = d; gly = g; nearSlot = slot; }
+        });
       });
     });
     if (!gly || best > 220) return;
@@ -684,23 +699,48 @@
     state.bonds.splice(idx, 1);
     recalculateGroups();
 
+    // 방금 끊어진 결합 기록 (1.5초): '결합 분리'로 여러 결합이 동시에 끊어져도 같은 사슬로 취급
+    const now = nowMs();
+    state.recentSplits = state.recentSplits.filter(s => now - s.time < 1500);
+    state.recentSplits.push({ a: bond.mol1, b: bond.mol2, time: now });
+
     // 끊어진 지점 오른쪽의 같은 줄 분자들을 함께 밀어 사슬 정렬을 유지하고, 바로 다시 붙지 않게 함
     // (왼쪽 분자와 아직 연결된 분자 - 예: 글리세롤의 다른 지방산 - 는 그대로 둠)
     const dir = bond.mol2.x >= bond.mol1.x ? 1 : -1; // 인산기는 글리세롤 왼쪽 → 왼쪽으로 떨어짐
     // 지질(에스터): 떨어진 지방산·인산기 하나만 이동 (위아래 이웃 지방산은 그대로)
-    // 사슬(글리코시드·펩타이드): 같은 줄에서 끊긴 지점 바깥쪽 분자들을 함께 밀어 간격 유지
-    const mols = bond.type === 'ester'
-      ? [bond.mol2]
-      : state.molecules.filter(m =>
-          m === bond.mol2 ||
-          (m.groupId !== bond.mol1.groupId && m.x * dir > site.x * dir && Math.abs(m.y - bond.mol2.y) < 30)
-        );
+    // 사슬(글리코시드·펩타이드): 같은 사슬에서 끊긴 지점 바깥쪽 분자들만 함께 밀어 간격 유지
+    //  (같은 줄에 따로 놓인 상관없는 분자는 밀지 않음)
+    let mols;
+    if (bond.type === 'ester') {
+      mols = [bond.mol2];
+    } else {
+      const chain = chainMembers(bond.mol1);
+      mols = state.molecules.filter(m =>
+        m === bond.mol2 ||
+        (chain.has(m) && m.groupId !== bond.mol1.groupId && m.x * dir > site.x * dir && Math.abs(m.y - bond.mol2.y) < 30)
+      );
+    }
     state.slides.push({ mols, dist: dir * state.SEPARATE_SHIFT, moved: 0, start: nowMs(), duration: 700 });
 
     if (!quiet) showHint('💧 결합 분리(가수분해)! 물 분자(H₂O)가 첨가되어 -H와 -OH가 복원되었습니다.');
     else if (!state.bonds.some(b => b.hydrolyzing)) {
       showHint('💧 물 분자(H₂O)가 첨가되어 모든 결합이 분리(가수분해)되었습니다.');
     }
+  }
+
+  // 현재 결합 + 방금 끊어진 결합으로 이어진 분자 전체 (같은 사슬)
+  function chainMembers(start) {
+    const links = state.bonds.map(b => [b.mol1, b.mol2]).concat(state.recentSplits.map(s => [s.a, s.b]));
+    const seen = new Set([start]);
+    const queue = [start];
+    while (queue.length) {
+      const cur = queue.pop();
+      links.forEach(([a, b]) => {
+        const next = a === cur ? b : (b === cur ? a : null);
+        if (next && !seen.has(next)) { seen.add(next); queue.push(next); }
+      });
+    }
+    return seen;
   }
 
   // 분리 후 분자가 미끄러지듯 벌어지는 애니메이션
@@ -787,9 +827,11 @@
     state.history = [];
     state.waterParticles = [];
     state.slides = [];
+    state.recentSplits = [];
     state.currentPreset = null;
     // 판서 내용도 함께 지움
     state.strokes = [];
+    state.laserStrokes = [];
     state.currentStroke = null;
     renderDrawCanvas();
     showHint('화면이 모두 초기화되었습니다(판서 포함). 원하는 분자를 추가해보세요.');
@@ -882,7 +924,14 @@
 
   function updateStepStatus() {
     const n = state.bonds.length;
-    const more = !!findNextPlan();
+    // '다음 결합 가능' 여부는 분자 위치가 아니라 분자·결합 구성에만 달려 있으므로,
+    // 구성이 바뀐 경우에만 다시 계산 (매 프레임 모든 분자 쌍을 검사하지 않도록)
+    const key = `${state.activeCategory}|${state.molecules.length}|${n}|` +
+      state.bonds.map(b => b.id).join(',') + '|' + (state.molecules.length ? state.molecules[state.molecules.length - 1].id : '');
+    if (key !== state.stepCache.key) {
+      state.stepCache = { key, more: !!findNextPlan() };
+    }
+    const more = state.stepCache.more;
     const text = `결합 ${n}개 · ${more ? '다음 결합 가능' : '추가 결합 없음'}`;
     if (text === state.lastStepText) return;
     state.lastStepText = text;
@@ -908,6 +957,7 @@
     state.bonds = [];
     state.waterParticles = [];
     state.slides = [];
+    state.recentSplits = [];
     state.currentPreset = presetName;
     state.history = [];
 
@@ -998,12 +1048,15 @@
         const n = PL_UNIT.COUNT, gap = PL_UNIT.HEAD_R * 2 + PL_UNIT.HEAD_GAP, len = PL_UNIT.LEN;
         const cy = len / 2 + PL_UNIT.LAYER_GAP / 2;  // 각 층 중심 (꼬리 끝 사이 LAYER_GAP만큼 떨어짐)
         const start = -((n - 1) * gap) / 2;
+        // 자유 모드의 세포막과 같이 한 덩어리로 묶음 (드래그·삭제 시 통째로)
+        const groupId = 'mem_' + Math.random().toString(36).slice(2, 9);
         for (let i = 0; i < n; i++) {
           push(
-            new Molecule({ category: 'lipid', subType: 'pl_unit', name: '인지질(상)', x: start + i * gap, y: -cy, width: gap, height: len, data: { dir: 'down' } }),
-            new Molecule({ category: 'lipid', subType: 'pl_unit', name: '인지질(하)', x: start + i * gap, y: cy, width: gap, height: len, data: { dir: 'up' } })
+            new Molecule({ category: 'lipid', subType: 'pl_unit', name: '인지질(상)', x: start + i * gap, y: -cy, width: gap, height: len, data: { dir: 'down', fixedGroup: groupId } }),
+            new Molecule({ category: 'lipid', subType: 'pl_unit', name: '인지질(하)', x: start + i * gap, y: cy, width: gap, height: len, data: { dir: 'up', fixedGroup: groupId } })
           );
         }
+        state.molecules.forEach(m => { if (m.data.fixedGroup === groupId) m.groupId = groupId; });
         showHint('💡 친수성 머리는 바깥(물 쪽), 소수성 꼬리는 안쪽으로 모여 2중층을 이룹니다.');
         break;
       }
@@ -1017,6 +1070,8 @@
   // --------------------------------------------------------------------------
   function renderLoop() {
     renderSimulation();
+    // 레이저 필기가 사라지는 동안에만 판서 레이어를 매 프레임 다시 그림
+    if (state.laserStrokes.length) renderDrawCanvas();
     updateStepStatus();
     updatePresetButtons();
     requestAnimationFrame(renderLoop);
@@ -1445,10 +1500,16 @@
     // 왼쪽 아미노기
     drawBondLine(-10, 0, -32, 0, c.line);
     const nColor = isDark ? '#60a5fa' : '#2563eb';
-    // 아미노기 N과 위쪽 H (펩타이드 결합 후에도 N–H는 남음: -CO-NH-)
     text('N', -42, 0, 'bold 16px sans-serif', nColor);
-    drawBondLine(-42, -9, -42, -22, c.line);
-    text('H', -42, -31, 'bold 15px sans-serif', nColor);
+    if (aa.code === 'Pro') {
+      // 프롤린: N이 R기와 고리를 이룸(2차 아민) → 위쪽 H 대신 R기로 이어지는 선
+      // 펩타이드 결합 후에는 N에 H가 남지 않음
+      drawBondLine(-42, 9, -42, 30, c.line);
+    } else {
+      // 아미노기 N과 위쪽 H (펩타이드 결합 후에도 N–H는 남음: -CO-NH-)
+      drawBondLine(-42, -9, -42, -22, c.line);
+      text('H', -42, -31, 'bold 15px sans-serif', nColor);
+    }
     if (!m.isLeftBonded()) {
       // 결합 전: 반응에 참여하는 왼쪽 H를 N과 선으로 연결 (H—N)
       drawBondLine(-51, 0, -61, 0, c.line);
@@ -1815,8 +1876,59 @@
     drawCtx.lineCap = 'round';
     drawCtx.lineJoin = 'round';
     state.strokes.forEach(s => drawSingleStroke(drawCtx, s));
-    if (state.currentStroke) drawSingleStroke(drawCtx, state.currentStroke);
+    if (state.currentStroke && !state.currentStroke.isLaser) drawSingleStroke(drawCtx, state.currentStroke);
+
+    // 레이저 필기: 일반 필기 위에 그림 (지우개 영향 없음)
+    //  - 쓰는 중이거나 마지막 레이저 필기 후 LASER.HOLD 동안은 그대로, 이후 LASER.FADE 동안 서서히 사라짐
+    //  - 이어서 쓰는 동안에는 앞서 쓴 레이저 글씨도 함께 유지되어 단어·문장이 한꺼번에 사라짐
+    const now = nowMs();
+    const writing = state.currentStroke && state.currentStroke.isLaser;
+    let alpha = 1;
+    if (!writing) {
+      const t = now - state.lastLaserEnd;
+      alpha = t <= LASER.HOLD ? 1 : Math.max(0, 1 - (t - LASER.HOLD) / LASER.FADE);
+      if (alpha === 0) state.laserStrokes = [];
+    }
+    state.laserStrokes.forEach(s => drawLaserStroke(drawCtx, s, alpha));
+    if (writing) drawLaserStroke(drawCtx, state.currentStroke, 1);
     drawCtx.restore();
+  }
+
+  const LASER = { HOLD: 1500, FADE: 1000 }; // 레이저: 유지 시간 · 사라지는 시간 (ms)
+
+  // 펜 색 '기본(auto)'은 테마에 따라 검정/흰색으로 그려 항상 보이게 함
+  const resolvePenColor = (color) =>
+    color === 'auto' ? (state.theme === 'dark' ? '#f8fafc' : '#1e293b') : color;
+
+  function strokePath(ctx, points) {
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      const p1 = points[i - 1], p2 = points[i];
+      ctx.quadraticCurveTo(p1.x, p1.y, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
+    }
+    if (points.length === 1) ctx.lineTo(points[0].x + 0.01, points[0].y); // 점 하나도 보이게
+  }
+
+  // 레이저 필기: 빛나는 테두리 + 밝은 심
+  function drawLaserStroke(ctx, stroke, alpha) {
+    if (!stroke.points || stroke.points.length < 1 || alpha <= 0) return;
+    const color = resolvePenColor(stroke.color);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    strokePath(ctx, stroke.points);
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = stroke.width + 3;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = Math.max(1, stroke.width * 0.45);
+    ctx.stroke();
+    ctx.restore();
   }
 
   function drawSingleStroke(ctx, stroke) {
@@ -1828,7 +1940,7 @@
       ctx.lineWidth = stroke.width * 3;
     } else {
       ctx.globalCompositeOperation = 'source-over';
-      ctx.strokeStyle = stroke.color;
+      ctx.strokeStyle = resolvePenColor(stroke.color);
       ctx.lineWidth = stroke.width;
     }
     ctx.beginPath();
@@ -1923,13 +2035,26 @@
 
     dom.eraserBtn.addEventListener('click', () => {
       state.isEraser = !state.isEraser;
+      if (state.isEraser) state.isLaser = false; // 지우개와 레이저는 동시에 켜지지 않음
       dom.eraserBtn.classList.toggle('active', state.isEraser);
+      dom.laserBtn.classList.toggle('active', state.isLaser);
+    });
+
+    dom.laserBtn.addEventListener('click', () => {
+      state.isLaser = !state.isLaser;
+      if (state.isLaser) state.isEraser = false;
+      dom.laserBtn.classList.toggle('active', state.isLaser);
+      dom.eraserBtn.classList.toggle('active', state.isEraser);
+      showHint(state.isLaser
+        ? '🔦 레이저 포인터: 쓴 글씨가 잠시 뒤 서서히 사라집니다. 이어서 쓰는 동안에는 함께 유지됩니다.'
+        : '✏️ 일반 펜으로 돌아왔습니다.');
     });
 
     dom.showHintBtn.addEventListener('click', toggleHint);
 
     dom.clearDrawBtn.addEventListener('click', () => {
       state.strokes = [];
+      state.laserStrokes = [];
       renderDrawCanvas();
       showHint('판서 내용이 모두 지워졌습니다.');
     });
@@ -1975,8 +2100,18 @@
   function setupPointerEvents() {
     const wrapper = dom.canvasWrapper;
 
+    // 입력 종류별 기준값
+    //  - 펜슬은 손가락보다 누르는 시간이 길고 펜 끝이 미세하게 떨려서 기준을 넉넉하게 둠
+    const DOUBLE_TAP_MS = { mouse: 350, touch: 380, pen: 500 }; // 앞 탭을 뗀 뒤 다음 탭을 누르기까지
+    const DOUBLE_TAP_DIST = { mouse: 12, touch: 40, pen: 40 };  // 두 탭 사이 허용 거리 (화면 px)
+    const DRAG_SLOP = { mouse: 3, touch: 10, pen: 8 };           // 이만큼 움직여야 드래그로 판단
+    const typeOf = (e) => (e.pointerType === 'pen' || e.pointerType === 'touch') ? e.pointerType : 'mouse';
+
+    const touchPoints = () => Array.from(state.pointers.values()).filter(p => p.type === 'touch');
+    const hasPen = () => Array.from(state.pointers.values()).some(p => p.type === 'pen');
+
     const pinchInfo = () => {
-      const pts = Array.from(state.pointers.values()).slice(0, 2);
+      const pts = touchPoints().slice(0, 2);
       const a = clientToScreen(pts[0].x, pts[0].y);
       const b = clientToScreen(pts[1].x, pts[1].y);
       return {
@@ -1993,7 +2128,15 @@
     };
 
     const endInteraction = (commitStroke) => {
-      if (state.currentStroke && commitStroke) state.strokes.push(state.currentStroke);
+      const s = state.currentStroke;
+      if (s && commitStroke) {
+        if (s.isLaser) {
+          state.laserStrokes.push(s);
+          state.lastLaserEnd = nowMs();
+        } else {
+          state.strokes.push(s);
+        }
+      }
       state.currentStroke = null;
       state.draggedMol = null;
       state.isPanning = false;
@@ -2001,13 +2144,43 @@
       renderDrawCanvas();
     };
 
+    // 더블클릭/더블탭 처리: 결합되어 있으면 분리(가수분해), 단독 분자면 삭제
+    let lastDoubleHandled = 0;
+    const handleDoubleTap = (mol) => {
+      lastDoubleHandled = Date.now();
+      state.lastTap = { time: 0, mol: null, x: 0, y: 0 };
+      stopAutoPlay();
+      if (!separateMoleculeBonds(mol)) removeMolecule(mol);
+    };
+
+    let doubleTapPointer = null; // 더블탭으로 처리된 포인터 (뗄 때 새 탭으로 기록하지 않음)
+
     wrapper.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       e.preventDefault();
-      state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const type = typeOf(e);
+
+      // 손바닥 무시: 펜슬로 쓰는 중에 닿는 손가락(손바닥)은 무시
+      if (type === 'touch' && hasPen()) return;
+
+      // 뗄 때 이벤트를 놓쳐 남아 있는 포인터 정리 (펜·마우스는 하나뿐, 첫 손가락이면 이전 손가락 기록은 무효)
+      if (type !== 'touch' || e.isPrimary) {
+        for (const [id, p] of state.pointers) if (p.type === type) state.pointers.delete(id);
+      }
+      // 펜슬이 닿으면 손바닥으로 시작된 동작(이동·핀치)을 취소
+      if (type === 'pen' && touchPoints().length) {
+        for (const [id, p] of state.pointers) if (p.type === 'touch') state.pointers.delete(id);
+        state.isPinching = false;
+        state.lastPinchDist = null;
+        state.lastPinchCenter = null;
+        endInteraction(false);
+      }
+
+      state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type });
+      try { wrapper.setPointerCapture(e.pointerId); } catch (_) { /* 지원하지 않는 환경 */ }
 
       // 두 손가락: 진행 중이던 드래그/필기를 취소하고 핀치 줌 & 이동
-      if (state.pointers.size === 2) {
+      if (type === 'touch' && touchPoints().length === 2) {
         endInteraction(false);
         const p = pinchInfo();
         state.isPinching = true;
@@ -2015,28 +2188,33 @@
         state.lastPinchCenter = p.center;
         return;
       }
-      if (state.pointers.size > 2) return;
+      if (state.isPinching || state.pointers.size > 1) return;
 
       const s = clientToScreen(e.clientX, e.clientY);
       const wc = screenToWorld(s.x, s.y);
+      state.downScreen = { x: e.clientX, y: e.clientY };
+      state.dragMoved = false;
 
       if (state.drawMode) {
-        state.currentStroke = { color: state.penColor, width: state.penWidth, isEraser: state.isEraser, points: [wc] };
+        state.currentStroke = {
+          color: state.penColor, width: state.penWidth,
+          isEraser: state.isEraser, isLaser: state.isLaser && !state.isEraser, points: [wc]
+        };
+        if (state.currentStroke.isLaser) renderDrawCanvas();
         return;
       }
 
       const found = findMolAt(wc.x, wc.y);
 
-      // 더블클릭 / 더블탭 (같은 분자를 320ms 안에 다시 누름)
+      // 더블클릭 / 더블탭: 같은 분자를 앞 탭을 뗀 직후 다시 누름 (손가락·펜슬·마우스 공통)
       const now = Date.now();
-      if (found && found === state.lastTap.mol && now - state.lastTap.time < 320) {
-        state.lastTap = { time: 0, mol: null };
-        stopAutoPlay();
-        // 결합되어 있으면 분리(가수분해), 단독 분자면 삭제
-        if (!separateMoleculeBonds(found)) removeMolecule(found);
+      const lt = state.lastTap;
+      if (found && found === lt.mol && now - lt.time < DOUBLE_TAP_MS[type] &&
+          Math.hypot(e.clientX - lt.x, e.clientY - lt.y) < DOUBLE_TAP_DIST[type]) {
+        doubleTapPointer = e.pointerId;
+        handleDoubleTap(found);
         return;
       }
-      state.lastTap = { time: now, mol: found };
 
       if (found) {
         state.draggedMol = found;
@@ -2052,10 +2230,12 @@
 
     const onMove = (e) => {
       if (!state.pointers.has(e.pointerId)) return;
-      state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const ptr = state.pointers.get(e.pointerId);
+      ptr.x = e.clientX;
+      ptr.y = e.clientY;
 
       if (state.isPinching) {
-        if (state.pointers.size < 2) return;
+        if (ptr.type !== 'touch' || touchPoints().length < 2) return;
         const p = pinchInfo();
         if (state.lastPinchDist) zoomAt(p.dist / state.lastPinchDist, p.center.x, p.center.y);
         state.view.offsetX += p.center.x - state.lastPinchCenter.x;
@@ -2073,6 +2253,14 @@
         state.currentStroke.points.push(wc);
         renderDrawCanvas();
         return;
+      }
+
+      // 펜 끝·손가락의 미세한 떨림은 드래그로 보지 않음 (탭/더블탭이 정확히 인식되도록)
+      if (!state.dragMoved) {
+        const d = Math.hypot(e.clientX - state.downScreen.x, e.clientY - state.downScreen.y);
+        if (d < DRAG_SLOP[ptr.type]) return;
+        state.dragMoved = true;
+        if (state.isPanning) { state.panStart.x = e.clientX; state.panStart.y = e.clientY; }
       }
 
       if (state.draggedMol) {
@@ -2098,10 +2286,11 @@
     const onUp = (e) => {
       if (!state.pointers.has(e.pointerId)) return;
       state.pointers.delete(e.pointerId);
+      try { wrapper.releasePointerCapture(e.pointerId); } catch (_) { /* 이미 해제됨 */ }
 
       if (state.isPinching) {
         // 손가락을 모두 뗄 때까지 다른 동작을 시작하지 않음
-        if (state.pointers.size === 0) {
+        if (touchPoints().length === 0) {
           state.isPinching = false;
           state.lastPinchDist = null;
           state.lastPinchCenter = null;
@@ -2109,9 +2298,35 @@
         return;
       }
 
-      if (state.draggedMol && !checkAndPerformMagneticSnap(state.draggedMol)) explainNoBond(state.draggedMol);
+      if (doubleTapPointer === e.pointerId) {
+        doubleTapPointer = null;
+        endInteraction(true);
+        return;
+      }
+
+      const mol = state.draggedMol;
+      if (mol && state.dragMoved) {
+        // 실제로 끌어다 놓았을 때만 결합 확인 · 안내 (단순 클릭에는 안내하지 않음)
+        if (!checkAndPerformMagneticSnap(mol)) explainNoBond(mol);
+      }
+
+      // 움직이지 않고 뗀 탭만 더블탭 판정 기준으로 기록
+      if (!state.drawMode && !state.dragMoved) {
+        state.lastTap = { time: Date.now(), mol, x: e.clientX, y: e.clientY };
+      } else {
+        state.lastTap = { time: 0, mol: null, x: 0, y: 0 };
+      }
       endInteraction(true);
     };
+
+    // 보조: 브라우저가 dblclick을 보내는 경우 (위 판정이 놓친 경우에만 처리)
+    wrapper.addEventListener('dblclick', (e) => {
+      if (state.drawMode || Date.now() - lastDoubleHandled < 700) return;
+      const s = clientToScreen(e.clientX, e.clientY);
+      const wc = screenToWorld(s.x, s.y);
+      const mol = findMolAt(wc.x, wc.y);
+      if (mol) handleDoubleTap(mol);
+    });
 
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
@@ -2142,7 +2357,9 @@
     state.draggedMol = null;
     state.isPanning = false;
     state.currentStroke = null;
-    state.lastTap = { time: 0, mol: null };
+    state.laserStrokes = [];
+    state.recentSplits = [];
+    state.lastTap = { time: 0, mol: null, x: 0, y: 0 };
 
     if (ws) {
       state.molecules = ws.molecules;

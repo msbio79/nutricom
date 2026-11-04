@@ -290,8 +290,9 @@
               <button class="color-dot" style="background-color: #3b82f6;" data-color="#3b82f6" title="파란색"></button>
               <button class="color-dot" style="background-color: #eab308;" data-color="#eab308" title="노란색"></button>
               <button class="color-dot" style="background-color: #10b981;" data-color="#10b981" title="초록색"></button>
-              <button class="color-dot" style="background-color: #ffffff; border: 1px solid #999;" data-color="#ffffff" title="흰색"></button>
-              <button class="color-dot" style="background-color: #1e293b;" data-color="#1e293b" title="검정색"></button>
+              <button class="color-dot" style="background-color: #a855f7;" data-color="#a855f7" title="보라색"></button>
+              <!-- 기본색: 라이트 모드에서는 검정, 다크 모드에서는 흰색으로 그려져 항상 잘 보임 -->
+              <button class="color-dot auto-dot" data-color="auto" title="기본색 (밝은 화면: 검정 / 어두운 화면: 흰색)"></button>
             </div>
 
             <!-- 굵기 선택 -->
@@ -301,7 +302,10 @@
               <button class="width-btn" data-width="14" title="굵게">L</button>
             </div>
 
-            <!-- 지우개 & 판서 비우기 -->
+            <!-- 레이저 포인터 · 지우개 · 판서 비우기 -->
+            <button id="laserBtn" class="tool-sub-btn laser-btn" title="레이저 포인터 (쓴 글씨가 잠시 뒤 사라짐)">
+              <svg viewBox="0 0 24 24" class="svg-icon-sm"><circle cx="12" cy="12" r="4"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4M4.2 4.2l2.8 2.8M17 17l2.8 2.8M4.2 19.8 7 17M17 7l2.8-2.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+            </button>
             <button id="eraserBtn" class="tool-sub-btn" title="지우개">
               <svg viewBox="0 0 24 24" class="svg-icon-sm"><path d="M15.14 3c-.4 0-.8.15-1.11.46l-9.57 9.58c-.62.62-.62 1.62 0 2.24l5.25 5.26c.62.62 1.62.62 2.24 0l9.58-9.58c.62-.62.62-1.62 0-2.24l-5.26-5.26c-.32-.31-.72-.46-1.13-.46zM7.22 13.88l6.78-6.78 3.89 3.89-6.78 6.78-3.89-3.89z"/></svg>
             </button>
