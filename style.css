@@ -1,0 +1,1364 @@
+/* ==========================================================================
+   생체 분자 탈수 축합 반응 시뮬레이션 스타일시트
+   - 고등학교 과학 수업용 직관적이고 시인성 높은 UI
+   - 라이트 모드 / 다크 모드 완벽 지원
+   - 반응형 레이아웃 및 터치 디바이스 최적화
+   ========================================================================== */
+
+:root {
+  /* 라이트 테마 변수 */
+  --bg-main: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-card: #f1f5f9;
+  --bg-card-hover: #e2e8f0;
+  --border-color: #cbd5e1;
+  --border-strong: #94a3b8;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-dim: #64748b;
+  
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: #dbeafe;
+  --primary-text: #1e40af;
+
+  --accent-carbs: #ea580c;
+  --accent-carbs-bg: #ffedd5;
+  --accent-protein: #0d9488;
+  --accent-protein-bg: #ccfbf1;
+  --accent-lipid: #7c3aed;
+  --accent-lipid-bg: #ede9fe;
+  --accent-water: #0284c7;
+
+  --canvas-grid: #e2e8f0;
+  --canvas-bg: #ffffff;
+  
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  
+  --sidebar-width: 380px;
+  --header-height: 64px;
+  --transition-speed: 0.25s;
+  --font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+}
+
+body.theme-dark {
+  /* 다크 테마 변수 */
+  --bg-main: #0b1120;
+  --bg-sidebar: #131d33;
+  --bg-card: #1e293b;
+  --bg-card-hover: #334155;
+  --border-color: #334155;
+  --border-strong: #475569;
+  --text-main: #f8fafc;
+  --text-muted: #cbd5e1;
+  --text-dim: #94a3b8;
+  
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-light: #1e3a8a;
+  --primary-text: #93c5fd;
+
+  --accent-carbs: #f97316;
+  --accent-carbs-bg: #431407;
+  --accent-protein: #14b8a6;
+  --accent-protein-bg: #134e4a;
+  --accent-lipid: #a855f7;
+  --accent-lipid-bg: #3b0764;
+  --accent-water: #38bdf8;
+
+  --canvas-grid: #1e293b;
+  --canvas-bg: #0f172a;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+}
+
+/* 기본 리셋 및 글로벌 설정 */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-family);
+  color: var(--text-main);
+  background-color: var(--bg-main);
+  font-size: 15px;
+  line-height: 1.45;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 메인 애플리케이션 래퍼 */
+#app-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   왼쪽 사이드바 (메뉴)
+   ========================================================================== */
+#sidebar {
+  width: var(--sidebar-width);
+  height: 100%;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 100;
+  transition: transform var(--transition-speed) ease, margin-left var(--transition-speed) ease;
+  box-shadow: var(--shadow-md);
+  position: relative;
+}
+
+#sidebar.collapsed {
+  margin-left: calc(-1 * var(--sidebar-width));
+  transform: translateX(-100%);
+}
+
+/* 사이드바 헤더 */
+.sidebar-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--bg-sidebar);
+}
+
+.logo-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.app-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.3px;
+}
+
+.app-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+  background-color: var(--bg-card-hover);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+/* 스크롤 가능한 사이드바 내용 */
+.sidebar-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sidebar-scrollable::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-scrollable::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+
+/* 대분류 탭 */
+.category-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  background-color: var(--bg-card);
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.cat-tab {
+  padding: 10px 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.cat-tab:hover {
+  color: var(--text-main);
+}
+
+.cat-tab.active {
+  background-color: var(--bg-sidebar);
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+body.theme-dark .cat-tab.active {
+  background-color: var(--bg-card-hover);
+  color: var(--text-main);
+}
+
+/* 섹션 스타일 */
+.panel-section {
+  background-color: var(--bg-sidebar);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 토글 그룹 (간편 모형 vs 화학 구조식) */
+.toggle-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  background-color: var(--bg-card);
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.toggle-btn {
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.toggle-btn.active {
+  background-color: var(--primary);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+
+/* 카테고리 패널 전환 */
+.category-panel {
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.category-panel.active {
+  display: flex;
+}
+
+/* 분자 추가 버튼 그리드 */
+.btn-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.btn-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.add-mol-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-card);
+  border-radius: 10px;
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-mol-btn:hover {
+  background-color: var(--bg-card-hover);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.mol-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 800;
+  color: white;
+}
+
+.mol-badge.hex {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  border-radius: 0;
+}
+
+.mol-badge.pent {
+  background: linear-gradient(135deg, #fb923c, #f59e0b);
+  clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+  border-radius: 0;
+}
+
+.mol-badge.gal {
+  background: linear-gradient(135deg, #d97706, #b45309);
+}
+
+.mol-badge.gly {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.mol-badge.sat {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  font-size: 16px;
+}
+
+.mol-badge.unsat {
+  background: linear-gradient(135deg, #ec4899, #db2777);
+  font-size: 16px;
+}
+
+.mol-badge.pho {
+  background: linear-gradient(135deg, #e11d48, #be123c);
+  font-size: 16px;
+}
+
+/* 프리셋 버튼 리스트 */
+.preset-btn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preset-btn {
+  text-align: left;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  line-height: 1.35;
+}
+
+.preset-btn:hover {
+  background-color: var(--bg-card-hover);
+  border-color: var(--border-strong);
+  transform: translateX(3px);
+}
+
+.preset-btn.highlight {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+  color: var(--primary-text);
+  font-weight: 600;
+}
+
+body.theme-dark .preset-btn.highlight {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  border-color: #3b82f6;
+}
+
+/* 아미노산 20종 팔레트 */
+.amino-group-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  display: block;
+}
+
+.amino-palette {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.amino-palette::-webkit-scrollbar {
+  width: 4px;
+}
+.amino-palette::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 2px;
+}
+
+.aa-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 2px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.aa-btn:hover {
+  background-color: var(--bg-card-hover);
+  transform: scale(1.05);
+}
+
+.aa-btn strong {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.aa-btn span {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* 아미노산 화학적 특성별 컬러 도트 */
+.aa-np { border-left: 3px solid #f59e0b; } /* 비극성 */
+.aa-p  { border-left: 3px solid #10b981; } /* 극성 */
+.aa-ac { border-left: 3px solid #ef4444; } /* 산성 */
+.aa-ba { border-left: 3px solid #3b82f6; } /* 염기성 */
+
+/* ==========================================================================
+   캔버스 제어 버튼 (초기화 및 분리)
+   ========================================================================== */
+.action-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  transform: translateY(-1px);
+}
+
+.action-btn.warn-btn {
+  border-color: #f59e0b;
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+}
+
+.action-btn.warn-btn:hover {
+  background-color: rgba(245, 158, 11, 0.2);
+}
+
+.action-btn.danger-btn {
+  border-color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.action-btn.danger-btn:hover {
+  background-color: rgba(239, 68, 68, 0.2);
+}
+
+.float-btn.quick-action {
+  background-color: var(--bg-card);
+  color: var(--text-dim);
+}
+
+.float-btn.quick-action:hover {
+  color: #ef4444;
+  border-color: #fca5a5;
+}
+
+/* 가이드 카드 */
+.guide-card {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.guide-item strong {
+  color: var(--text-main);
+}
+
+/* ==========================================================================
+   오른쪽 메인 캔버스 영역
+   ========================================================================== */
+#main-area {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  background-color: var(--canvas-bg);
+  overflow: hidden;
+}
+
+/* 플로팅 탑 바 (사이드바 펼치기 & 접혔을 때 제어기) */
+#floating-top-bar {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+#floating-top-bar > * {
+  pointer-events: auto;
+}
+
+.float-btn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-sidebar);
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  display: none;
+  transition: all 0.2s;
+}
+
+.float-btn:hover {
+  background-color: var(--bg-card);
+  transform: translateY(-1px);
+}
+
+#sidebar.collapsed ~ #main-area .sidebar-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 사이드바 접혔을 때 캔버스 상단에 나타나는 미니 시뮬레이션 제어기 */
+.floating-sim-controls {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--bg-sidebar);
+  padding: 4px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+#sidebar.collapsed ~ #main-area .floating-sim-controls {
+  display: flex;
+}
+
+.mini-ctrl-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mini-ctrl-btn:hover {
+  background-color: var(--bg-card-hover);
+}
+
+.mini-ctrl-btn.mini-play {
+  background-color: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.mini-step-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 0 8px;
+}
+
+/* 우측 상단 플로팅 툴바 (뷰 & 판서 도구) */
+#canvas-toolbar {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--bg-sidebar);
+  padding: 6px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+.tool-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tool-btn:hover {
+  background-color: var(--bg-card-hover);
+}
+
+.tool-btn.active {
+  background-color: var(--primary);
+  color: white;
+}
+
+.tool-btn.active .svg-icon {
+  fill: white;
+}
+
+.svg-icon {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.svg-icon-sm {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.tool-separator {
+  width: 1px;
+  height: 24px;
+  background-color: var(--border-color);
+  margin: 0 2px;
+}
+
+/* 판서 서브 옵션 바 */
+.draw-options-bar {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin-left: 4px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border-color);
+}
+
+.draw-options-bar.active {
+  display: flex;
+}
+
+.color-palette {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.color-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.color-dot:hover {
+  transform: scale(1.15);
+}
+
+.color-dot.active {
+  border-color: var(--text-main);
+  transform: scale(1.2);
+  box-shadow: 0 0 0 1px var(--bg-sidebar);
+}
+
+.width-selector {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background-color: var(--bg-card);
+  padding: 2px;
+  border-radius: 6px;
+}
+
+.width-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.width-btn.active {
+  background-color: var(--primary);
+  color: white;
+}
+
+.tool-sub-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.tool-sub-btn:hover {
+  background-color: var(--bg-card-hover);
+}
+
+.tool-sub-btn.active {
+  background-color: var(--text-main);
+  color: var(--bg-sidebar);
+}
+
+.tool-sub-btn.danger:hover {
+  background-color: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+/* 반응 배너 (화면 중앙 상단 안내 토스트) */
+.reaction-banner {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: white;
+  padding: 8px 18px;
+  border-radius: 30px;
+  box-shadow: var(--shadow-lg);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+body.theme-light .banner-content {
+  background-color: rgba(255, 255, 255, 0.94);
+  color: #0f172a;
+  border: 1px solid var(--border-strong);
+}
+
+.banner-badge {
+  background-color: #2563eb;
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+/* 캔버스 래퍼 및 레이어 구조 */
+#canvas-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+#simCanvas, #drawCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+#simCanvas {
+  z-index: 10;
+  cursor: grab;
+}
+
+#simCanvas.grabbing {
+  cursor: grabbing;
+}
+
+#drawCanvas {
+  z-index: 20;
+  pointer-events: none; /* 평소엔 시뮬레이션 이벤트 통과 */
+}
+
+#drawCanvas.draw-active {
+  pointer-events: auto; /* 판서 모드일 때 그리기 이벤트 캡처 */
+  cursor: crosshair;
+}
+
+/* 배율 표시기 */
+.zoom-indicator {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 30;
+  background-color: var(--bg-sidebar);
+  border: 1px solid var(--border-color);
+  color: var(--text-dim);
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+}
+
+/* 바닥 안내 힌트 바 */
+.canvas-bottom-hint {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  background-color: var(--bg-sidebar);
+  border: 1px solid var(--border-color);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  max-width: 90%;
+  text-align: center;
+}
+
+/* ==========================================================================
+   반응형 미디어 쿼리 (태블릿 & 스마트폰)
+   ========================================================================== */
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 320px;
+  }
+
+  #sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+  }
+
+  #canvas-toolbar {
+    top: auto;
+    bottom: 60px;
+    right: 10px;
+    padding: 4px 6px;
+  }
+
+  .canvas-bottom-hint {
+    bottom: 12px;
+    font-size: 11.5px;
+    padding: 6px 12px;
+  }
+
+  .amino-palette {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .reaction-banner {
+    top: 60px;
+    width: 90%;
+  }
+
+  .banner-content {
+    font-size: 13px;
+    padding: 6px 12px;
+  }
+}
+
+
+/* ==========================================================================
+   단계별 진행 제어 (사이드바)
+   ========================================================================== */
+.step-ctrl-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 6px;
+}
+
+.step-btn {
+  padding: 10px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.step-btn:hover {
+  background-color: var(--bg-card-hover);
+}
+
+.step-btn.play {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+.step-btn.play:hover {
+  background-color: var(--primary-hover);
+}
+
+.step-status {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* 사이드바 접힘 시 빠른 비우기 버튼 표시 */
+#sidebar.collapsed ~ #main-area .quick-action {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 터치 제스처를 브라우저가 가로채지 않도록 */
+#canvas-wrapper {
+  touch-action: none;
+}
+
+/* ==========================================================================
+   한 줄 컨트롤 (보기 설정 · 단계 진행 · 캔버스 제어)
+   ========================================================================== */
+.compact-card {
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.option-row {
+  display: grid;
+  grid-template-columns: 68px 1fr;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+}
+
+.option-row + .option-row {
+  border-top: 1px dashed var(--border-color);
+  padding-top: 8px;
+}
+
+.row-label {
+  display: flex;
+  flex-direction: column;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.row-sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* 세그먼트 토글 */
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  overflow: hidden;
+  background-color: var(--bg-card);
+}
+
+.seg-btn {
+  padding: 7px 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.seg-btn + .seg-btn {
+  border-left: 1px solid var(--border-color);
+}
+
+.seg-btn:hover {
+  background-color: var(--bg-card-hover);
+}
+
+.seg-btn.active {
+  background-color: var(--primary);
+  color: #ffffff;
+}
+
+/* 한 줄 버튼 묶음 */
+.btn-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 5px;
+}
+
+.row-btn {
+  padding: 7px 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s;
+}
+
+.row-btn:hover {
+  background-color: var(--bg-card-hover);
+}
+
+.row-btn.primary {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+.row-btn.primary:hover {
+  background-color: var(--primary-hover);
+}
+
+.row-btn.warn:hover {
+  border-color: #f59e0b;
+  color: #b45309;
+}
+
+.row-btn.danger:hover {
+  border-color: #fca5a5;
+  color: #ef4444;
+}
+
+/* ==========================================================================
+   분자 추가 버튼 (작은 아이콘 · 한 줄형)
+   ========================================================================== */
+.btn-grid-3,
+.btn-grid-2 {
+  gap: 5px;
+}
+
+.add-mol-btn {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.add-mol-btn:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.mol-badge {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  font-size: 8.5px;
+  font-weight: 800;
+}
+
+.mol-badge.sat,
+.mol-badge.unsat,
+.mol-badge.pho {
+  font-size: 10px;
+}
+
+/* 아미노산 팔레트: 작은 칸 5열 */
+.amino-group-desc {
+  font-size: 11.5px;
+  margin-bottom: 0;
+}
+
+.amino-palette {
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  max-height: 180px;
+}
+
+.aa-btn {
+  padding: 4px 1px;
+  border-radius: 6px;
+  line-height: 1.15;
+}
+
+.aa-btn:hover {
+  transform: none;
+  background-color: var(--bg-card-hover);
+}
+
+.aa-btn strong {
+  font-size: 12px;
+}
+
+.aa-btn span {
+  font-size: 9.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .amino-palette {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* 선택된 프리셋 표시 */
+.preset-btn.active {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+  color: var(--primary-text);
+  font-weight: 600;
+}
+
+body.theme-dark .preset-btn.active {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  border-color: #3b82f6;
+}
+
+/* 하단 설명칸 자동 숨김 */
+.canvas-bottom-hint {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.canvas-bottom-hint.hidden {
+  opacity: 0;
+  transform: translate(-50%, 10px);
+}
+
+/* 설명 다시 보기 버튼 (하단 오른쪽) */
+.show-hint-btn {
+  position: absolute;
+  bottom: 18px;
+  right: 20px;
+  z-index: 31;
+  padding: 6px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-sidebar);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.show-hint-btn:hover {
+  background-color: var(--bg-card-hover);
+  color: var(--text-main);
+}
+
+.show-hint-btn.active {
+  border-color: var(--primary);
+  color: var(--primary-text);
+}
+
+/* 배율 표시는 설명 보기 버튼 왼쪽으로 */
+.zoom-indicator {
+  right: 130px;
+}
+
+@media (max-width: 768px) {
+  .show-hint-btn {
+    bottom: 10px;
+    right: 10px;
+    font-size: 11.5px;
+    padding: 5px 10px;
+  }
+
+  .zoom-indicator {
+    bottom: 12px;
+    right: 112px;
+  }
+}
+
+@media (max-width: 768px) {
+  .canvas-bottom-hint {
+    bottom: 46px;
+  }
+}
+
+/* 메뉴 스크롤바: 둥근 끝 제거, 얇고 연하게 (마우스를 올리면 진하게) */
+.sidebar-scrollable {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+.sidebar-scrollable::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scrollable::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 0;
+}
+
+.sidebar-scrollable:hover::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+}
+
+.amino-palette::-webkit-scrollbar-thumb {
+  border-radius: 0;
+}
+
+/* 영양소 탭 4개 (탄수화물·단백질·지질·자유) */
+.category-tabs {
+  grid-template-columns: 1.15fr 1fr 0.8fr 1.15fr;
+  gap: 3px;
+}
+
+.cat-tab {
+  font-size: 13px;
+  padding: 9px 2px;
+  white-space: nowrap;
+}
+
+/* 자유 모드: 세포막 추가 버튼 (2칸 차지) */
+.add-mol-btn.span-2 {
+  grid-column: span 2;
+}
+
+.mol-badge.membrane {
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  font-size: 12px;
+}

@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>영양소 결합 시뮬레이션</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🥗</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-light">
+  <!-- 전체 컨테이너 -->
+  <div id="app-container">
+    
+    <!-- 왼쪽 사이드바 메뉴 -->
+    <aside id="sidebar">
+      <!-- 사이드바 상단 헤더 -->
+      <header class="sidebar-header">
+        <div class="logo-area">
+          <span class="logo-icon" title="3대 영양소">🥗</span>
+          <div>
+            <h1 class="app-title">영양소 결합 시뮬레이션</h1>
+            <p class="app-subtitle">탈수 축합 & 가수분해 반응</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="themeToggleBtn" class="icon-btn" title="다크/라이트 모드 전환" aria-label="테마 전환">
+            <span class="theme-icon">🌙</span>
+          </button>
+          <button id="collapseSidebarBtn" class="icon-btn" title="메뉴 접기" aria-label="메뉴 접기">
+            ◀
+          </button>
+        </div>
+      </header>
+
+      <!-- 스크롤 가능한 메뉴 본문 -->
+      <div class="sidebar-scrollable">
+        
+        <!-- 영양소 대분류 탭 -->
+        <nav class="category-tabs">
+          <button class="cat-tab active" data-category="carbs">🍞 탄수화물</button>
+          <button class="cat-tab" data-category="protein">🥩 단백질</button>
+          <button class="cat-tab" data-category="lipid">🥑 지질</button>
+          <button class="cat-tab" data-category="free">🧪 자유 모드</button>
+        </nav>
+
+        <!-- 보기 설정 (한 줄씩) -->
+        <div class="panel-section compact-card">
+          <div class="option-row">
+            <span class="row-label">표시 모드</span>
+            <div class="seg">
+              <button id="modeFormulaBtn" class="seg-btn active" title="교과서 화학 구조식">구조식</button>
+              <button id="modeSimpleBtn" class="seg-btn" title="도형으로 단순하게">간편 모형</button>
+            </div>
+          </div>
+          <div class="option-row">
+            <span class="row-label">물 분자</span>
+            <div class="seg">
+              <button id="waterOnBtn" class="seg-btn active">보이기</button>
+              <button id="waterOffBtn" class="seg-btn">숨기기</button>
+            </div>
+          </div>
+          <div class="option-row">
+            <span class="row-label">결합 이름</span>
+            <div class="seg">
+              <button id="labelOnBtn" class="seg-btn">보이기</button>
+              <button id="labelOffBtn" class="seg-btn active">숨기기</button>
+            </div>
+          </div>
+          <div class="option-row">
+            <span class="row-label">C·H 표시<small class="row-sub">당·지질만</small></span>
+            <div class="seg">
+              <button id="chOnBtn" class="seg-btn" title="탄수화물 고리의 탄소, 지방산의 탄소·수소를 표시">보이기</button>
+              <button id="chOffBtn" class="seg-btn active">숨기기</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 진행 · 캔버스 제어 (한 줄씩) -->
+        <div class="panel-section compact-card">
+          <div class="option-row">
+            <span class="row-label">단계 진행<small id="stepStatus" class="row-sub">결합 0개</small></span>
+            <div class="btn-row">
+              <button id="stepPrevBtn" class="row-btn" title="마지막 결합을 가수분해">◀ 이전</button>
+              <button id="stepPlayBtn" class="row-btn primary" title="결합을 차례로 자동 진행 / 일시정지">▶ 재생</button>
+              <button id="stepNextBtn" class="row-btn" title="다음 결합 하나 형성">다음 ▶</button>
+            </div>
+          </div>
+          <div class="option-row">
+            <span class="row-label">캔버스</span>
+            <div class="btn-row">
+              <button id="separateBondsBtn" class="row-btn warn" title="모든 결합 분리하기 (가수분해)">✂️ 결합 분리</button>
+              <button id="clearAllMolsBtn" class="row-btn danger" title="화면의 모든 분자와 판서 지우기">🗑️ 비우기</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1. 탄수화물 제어 패널 -->
+        <div id="carbs-panel" class="category-panel active">
+          <div class="panel-section">
+            <label class="section-label">단당류 분자 추가 (클릭)</label>
+            <div class="btn-grid-3">
+              <button class="add-mol-btn" data-type="glucose">
+                <span class="mol-badge hex">C₆</span>
+                포도당
+              </button>
+              <button class="add-mol-btn" data-type="fructose">
+                <span class="mol-badge pent">C₅</span>
+                과당
+              </button>
+              <button class="add-mol-btn" data-type="galactose">
+                <span class="mol-badge hex gal">C₆</span>
+                갈락토스
+              </button>
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <label class="section-label">추천 결합 프리셋</label>
+            <div class="preset-btn-list">
+              <button class="preset-btn" data-preset="maltose">
+                <strong>엿당(Maltose)</strong>: 포도당 + 포도당
+              </button>
+              <button class="preset-btn" data-preset="sucrose">
+                <strong>설탕(Sucrose)</strong>: 포도당 + 과당
+              </button>
+              <button class="preset-btn" data-preset="lactose">
+                <strong>젖당(Lactose)</strong>: 갈락토스 + 포도당
+              </button>
+              <button class="preset-btn" data-preset="starch">
+                <strong>녹말(Starch) 사슬</strong>: α-포도당 α-1,4 연결
+              </button>
+              <button class="preset-btn" data-preset="cellulose">
+                <strong>셀룰로오스 사슬</strong>: β-포도당 교대로 뒤집혀 β-1,4 연결
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. 단백질 제어 패널 -->
+        <div id="protein-panel" class="category-panel">
+          <div class="panel-section">
+            <label class="section-label">아미노산 20종 선택 (클릭하여 추가)</label>
+            <div class="amino-group-tabs">
+              <span class="amino-group-desc">아미노기(-NH₂)와 카복실기(-COOH) 결합</span>
+            </div>
+            
+            <div class="amino-palette" id="aminoPalette">
+              <!-- 20종 아미노산 동적 생성 -->
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <label class="section-label">단백질 프리셋</label>
+            <div class="preset-btn-list">
+              <button class="preset-btn" data-preset="dipeptide">
+                <strong>다이펩타이드</strong>: 글리신 + 알라닌
+              </button>
+              <button class="preset-btn" data-preset="tripeptide">
+                <strong>트라이펩타이드</strong>: 글리신 + 세린 + 발린
+              </button>
+              <button class="preset-btn" data-preset="polypeptide">
+                <strong>폴리펩타이드 사슬</strong>: 아미노산 연속 연결
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 지질 제어 패널 -->
+        <div id="lipid-panel" class="category-panel">
+          <div class="panel-section">
+            <label class="section-label">지질 구성 성분 추가</label>
+            <div class="btn-grid-2">
+              <button class="add-mol-btn" data-type="glycerol">
+                <span class="mol-badge gly">Gly</span>
+                글리세롤
+              </button>
+              <button class="add-mol-btn" data-type="fatty_sat">
+                <span class="mol-badge sat">━</span>
+                포화 지방산
+              </button>
+              <button class="add-mol-btn" data-type="fatty_unsat">
+                <span class="mol-badge unsat">◟</span>
+                불포화 지방산
+              </button>
+              <button class="add-mol-btn" data-type="phosphate">
+                <span class="mol-badge pho">℗</span>
+                인산기
+              </button>
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <label class="section-label">지질 결합 프리셋</label>
+            <div class="preset-btn-list">
+              <button class="preset-btn" data-preset="triglyceride">
+                <strong>중성지방 (트라이글리세라이드)</strong><br>
+                글리세롤 1 + 지방산 3 (3 H₂O 방출)
+              </button>
+              <button class="preset-btn" data-preset="phospholipid">
+                <strong>인지질 (Phospholipid)</strong><br>
+                친수성 머리 + 소수성 꼬리 2개
+              </button>
+              <button class="preset-btn" data-preset="bilayer">
+                <strong>세포막 인지질 2중층</strong> 구조 보기
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. 자유 모드 패널: 모든 물질 불러오기 (프리셋 없음) -->
+        <div id="free-panel" class="category-panel">
+          <div class="panel-section">
+            <label class="section-label">🍞 단당류</label>
+            <div class="btn-grid-2">
+              <button class="add-mol-btn" data-type="glucose_alpha" title="1번 탄소의 OH가 아래쪽"><span class="mol-badge hex">α</span>α-포도당</button>
+              <button class="add-mol-btn" data-type="glucose_beta" title="1번 탄소의 OH가 위쪽"><span class="mol-badge hex">β</span>β-포도당</button>
+              <button class="add-mol-btn" data-type="fructose"><span class="mol-badge pent">C₅</span>과당</button>
+              <button class="add-mol-btn" data-type="galactose"><span class="mol-badge hex gal">C₆</span>갈락토스</button>
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <label class="section-label">🥩 아미노산 20종</label>
+            <div class="amino-palette" id="freeAminoPalette"></div>
+          </div>
+
+          <div class="panel-section">
+            <label class="section-label">🥑 지질 구성 성분</label>
+            <div class="btn-grid-2">
+              <button class="add-mol-btn" data-type="glycerol"><span class="mol-badge gly">Gly</span>글리세롤</button>
+              <button class="add-mol-btn" data-type="fatty_sat"><span class="mol-badge sat">━</span>포화 지방산</button>
+              <button class="add-mol-btn" data-type="fatty_unsat"><span class="mol-badge unsat">◟</span>불포화 지방산</button>
+              <button class="add-mol-btn" data-type="phosphate"><span class="mol-badge pho">℗</span>인산기</button>
+              <button class="add-mol-btn span-2" data-type="membrane" title="인지질 2중층 조각을 추가"><span class="mol-badge membrane">≋</span>세포막 (인지질 2중층)</button>
+            </div>
+          </div>
+        </div>
+
+      </div> <!-- // sidebar-scrollable -->
+    </aside>
+
+    <!-- 오른쪽 캔버스 영역 -->
+    <main id="main-area">
+      
+      <!-- 상단 플로팅 바 (사이드바 접힘 시 펼치기 버튼 + 빠른 초기화) -->
+      <div id="floating-top-bar" class="floating-bar">
+        <button id="expandSidebarBtn" class="float-btn sidebar-trigger" title="메뉴 열기">
+          ☰ 메뉴 열기
+        </button>
+        <div class="floating-sim-controls">
+          <button id="miniPrevBtn" class="mini-ctrl-btn" title="이전 단계">◀</button>
+          <button id="miniPlayBtn" class="mini-ctrl-btn mini-play" title="재생 / 일시정지">▶</button>
+          <button id="miniNextBtn" class="mini-ctrl-btn" title="다음 단계">▶|</button>
+          <span id="miniStepText" class="mini-step-text">결합 0개</span>
+        </div>
+        <button id="quickClearBtn" class="float-btn quick-action" title="화면 초기화">
+          🗑 화면 비우기
+        </button>
+      </div>
+
+      <!-- 우측 상단 플로팅 도구함 (뷰 제어 및 판서 도구) -->
+      <div id="canvas-toolbar" class="floating-toolbar">
+        <!-- 뷰 컨트롤 -->
+        <div class="tool-group view-tools">
+          <button id="zoomInBtn" class="tool-btn" title="확대 (+)">
+            <svg viewBox="0 0 24 24" class="svg-icon"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zm.5-7h-1v2H7v1h2v2h1v-2h2V9h-2z"/></svg>
+          </button>
+          <button id="zoomOutBtn" class="tool-btn" title="축소 (-)">
+            <svg viewBox="0 0 24 24" class="svg-icon"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zm-2.5-4h5v1h-5z"/></svg>
+          </button>
+          <button id="zoomResetBtn" class="tool-btn" title="화면 맞춤 (원래 크기/위치)">
+            <svg viewBox="0 0 24 24" class="svg-icon"><path d="M5 15H3v4c0 1.1.9 2 2 2h4v-2H5v-4zM5 5h4V3H5c-1.1 0-2 .9-2 2v4h2V5zm14-2h-4v2h4v4h2V5c0-1.1-.9-2-2-2zm0 16h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg>
+          </button>
+        </div>
+
+        <div class="tool-separator"></div>
+
+        <!-- 필기 / 그리기 도구 -->
+        <div class="tool-group draw-tools">
+          <button id="drawModeBtn" class="tool-btn" title="판서 / 그리기 모드 전환">
+            <svg viewBox="0 0 24 24" class="svg-icon"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            <span class="btn-text">판서</span>
+          </button>
+
+          <!-- 판서 활성화 시 서브 옵션 -->
+          <div id="drawOptionsPanel" class="draw-options-bar">
+            <!-- 색상 선택 -->
+            <div class="color-palette">
+              <button class="color-dot active" style="background-color: #ef4444;" data-color="#ef4444" title="빨간색"></button>
+              <button class="color-dot" style="background-color: #3b82f6;" data-color="#3b82f6" title="파란색"></button>
+              <button class="color-dot" style="background-color: #eab308;" data-color="#eab308" title="노란색"></button>
+              <button class="color-dot" style="background-color: #10b981;" data-color="#10b981" title="초록색"></button>
+              <button class="color-dot" style="background-color: #ffffff; border: 1px solid #999;" data-color="#ffffff" title="흰색"></button>
+              <button class="color-dot" style="background-color: #1e293b;" data-color="#1e293b" title="검정색"></button>
+            </div>
+
+            <!-- 굵기 선택 -->
+            <div class="width-selector">
+              <button class="width-btn active" data-width="3" title="얇게">S</button>
+              <button class="width-btn" data-width="7" title="보통">M</button>
+              <button class="width-btn" data-width="14" title="굵게">L</button>
+            </div>
+
+            <!-- 지우개 & 판서 비우기 -->
+            <button id="eraserBtn" class="tool-sub-btn" title="지우개">
+              <svg viewBox="0 0 24 24" class="svg-icon-sm"><path d="M15.14 3c-.4 0-.8.15-1.11.46l-9.57 9.58c-.62.62-.62 1.62 0 2.24l5.25 5.26c.62.62 1.62.62 2.24 0l9.58-9.58c.62-.62.62-1.62 0-2.24l-5.26-5.26c-.32-.31-.72-.46-1.13-.46zM7.22 13.88l6.78-6.78 3.89 3.89-6.78 6.78-3.89-3.89z"/></svg>
+            </button>
+            <button id="clearDrawBtn" class="tool-sub-btn danger" title="판서 모두 지우기">
+              <svg viewBox="0 0 24 24" class="svg-icon-sm"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 캔버스 컨테이너 -->
+      <div id="canvas-wrapper">
+        <canvas id="simCanvas"></canvas>
+        <canvas id="drawCanvas"></canvas>
+      </div>
+
+      <!-- 배율 표시 인디케이터 -->
+      <div id="zoomIndicator" class="zoom-indicator">100%</div>
+
+      <!-- 하단 직관 힌트 바 -->
+      <div id="hintBar" class="canvas-bottom-hint">
+        <span id="hintText">💡 분자를 맞닿게 드래그하면 자석 결합(탈수) / 더블클릭 시 분리(가수분해) 및 삭제</span>
+      </div>
+
+      <!-- 설명 다시 보기 버튼 (하단 오른쪽) -->
+      <button id="showHintBtn" class="show-hint-btn" title="설명 보기 / 감추기">💡 설명 보기</button>
+
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
