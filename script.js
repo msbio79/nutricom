@@ -87,7 +87,7 @@
     downScreen: { x: 0, y: 0 },
     isPanning: false,
     panStart: { x: 0, y: 0 },
-    lastTap: { time: 0, mol: null, x: 0, y: 0 },
+    lastTaps: {},       // 입력 종류별(pen/touch/mouse) 마지막 탭 기록 - 손바닥 터치가 펜슬 탭 기록을 지우지 않도록
     recentSplits: [],   // 방금 끊어진 결합 (동시에 여러 결합을 분리할 때 사슬 정렬 유지용)
     stepCache: { key: '', more: false },
 
@@ -2101,11 +2101,18 @@
     const wrapper = dom.canvasWrapper;
 
     // 입력 종류별 기준값
-    //  - 펜슬은 손가락보다 누르는 시간이 길고 펜 끝이 미세하게 떨려서 기준을 넉넉하게 둠
-    const DOUBLE_TAP_MS = { mouse: 350, touch: 380, pen: 500 }; // 앞 탭을 뗀 뒤 다음 탭을 누르기까지
-    const DOUBLE_TAP_DIST = { mouse: 12, touch: 40, pen: 40 };  // 두 탭 사이 허용 거리 (화면 px)
-    const DRAG_SLOP = { mouse: 3, touch: 10, pen: 8 };           // 이만큼 움직여야 드래그로 판단
+    //  - 펜슬은 손가락보다 누르는 시간이 길고, 펜을 들어 올렸다 내리는 간격도 길어서 기준을 넉넉하게 둠
+    const DOUBLE_TAP_UP_MS = { mouse: 350, touch: 380, pen: 650 };   // 앞 탭을 뗀 뒤 → 다음 탭을 누르기까지
+    const DOUBLE_TAP_DOWN_MS = { mouse: 450, touch: 500, pen: 900 }; // 앞 탭을 누른 뒤 → 다음 탭을 누르기까지
+    const DOUBLE_TAP_DIST = { mouse: 12, touch: 40, pen: 50 };       // 두 탭 사이 허용 거리 (화면 px)
+    const DRAG_SLOP = { mouse: 3, touch: 10, pen: 12 };               // 이만큼 움직여야 드래그로 판단
+    const PALM_IGNORE_MS = 600; // 펜슬을 뗀 뒤 이 시간 동안 닿는 손가락은 손바닥으로 보고 무시
     const typeOf = (e) => (e.pointerType === 'pen' || e.pointerType === 'touch') ? e.pointerType : 'mouse';
+    let lastPenUp = -Infinity;
+    const clearTaps = () => { state.lastTaps = {}; };
+    const recordTap = (type, mol, x, y, downTime) => {
+      state.lastTaps[type] = { up: Date.now(), down: downTime, mol, x, y };
+    };
 
     const touchPoints = () => Array.from(state.pointers.values()).filter(p => p.type === 'touch');
     const hasPen = () => Array.from(state.pointers.values()).some(p => p.type === 'pen');
@@ -2146,9 +2153,12 @@
 
     // 더블클릭/더블탭 처리: 결합되어 있으면 분리(가수분해), 단독 분자면 삭제
     let lastDoubleHandled = 0;
+    let lastClick = { time: 0, mol: null };
+    let lastUpInfo = { type: '', tap: false };
     const handleDoubleTap = (mol) => {
       lastDoubleHandled = Date.now();
-      state.lastTap = { time: 0, mol: null, x: 0, y: 0 };
+      clearTaps();
+      lastClick = { time: 0, mol: null };
       stopAutoPlay();
       if (!separateMoleculeBonds(mol)) removeMolecule(mol);
     };
@@ -2160,12 +2170,17 @@
       e.preventDefault();
       const type = typeOf(e);
 
-      // 손바닥 무시: 펜슬로 쓰는 중에 닿는 손가락(손바닥)은 무시
-      if (type === 'touch' && hasPen()) return;
+      // 손바닥 무시: 펜슬로 쓰는 중이거나 펜슬을 막 뗀 직후에 닿는 손가락(손바닥)은 무시
+      if (type === 'touch' && (hasPen() || Date.now() - lastPenUp < PALM_IGNORE_MS)) return;
 
       // 뗄 때 이벤트를 놓쳐 남아 있는 포인터 정리 (펜·마우스는 하나뿐, 첫 손가락이면 이전 손가락 기록은 무효)
+      //  - 놓친 포인터가 움직이지 않은 탭이었다면 탭으로 기록 (펜슬 첫 탭의 '뗌' 신호가 빠져도 더블탭 인식)
       if (type !== 'touch' || e.isPrimary) {
-        for (const [id, p] of state.pointers) if (p.type === type) state.pointers.delete(id);
+        for (const [id, p] of state.pointers) {
+          if (p.type !== type) continue;
+          if (p.isTap && !p.moved) recordTap(type, p.mol, p.x, p.y, p.downTime);
+          state.pointers.delete(id);
+        }
       }
       // 펜슬이 닿으면 손바닥으로 시작된 동작(이동·핀치)을 취소
       if (type === 'pen' && touchPoints().length) {
@@ -2176,7 +2191,8 @@
         endInteraction(false);
       }
 
-      state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type });
+      const ptrRec = { x: e.clientX, y: e.clientY, type, downTime: Date.now(), isTap: false, moved: false, mol: null };
+      state.pointers.set(e.pointerId, ptrRec);
       try { wrapper.setPointerCapture(e.pointerId); } catch (_) { /* 지원하지 않는 환경 */ }
 
       // 두 손가락: 진행 중이던 드래그/필기를 취소하고 핀치 줌 & 이동
@@ -2206,15 +2222,18 @@
 
       const found = findMolAt(wc.x, wc.y);
 
-      // 더블클릭 / 더블탭: 같은 분자를 앞 탭을 뗀 직후 다시 누름 (손가락·펜슬·마우스 공통)
+      // 더블클릭 / 더블탭: 같은 분자를 곧바로 다시 누름 (손가락·펜슬·마우스 각각 따로 판정)
       const now = Date.now();
-      const lt = state.lastTap;
-      if (found && found === lt.mol && now - lt.time < DOUBLE_TAP_MS[type] &&
+      const lt = state.lastTaps[type];
+      if (found && lt && found === lt.mol &&
+          (now - lt.up < DOUBLE_TAP_UP_MS[type] || now - lt.down < DOUBLE_TAP_DOWN_MS[type]) &&
           Math.hypot(e.clientX - lt.x, e.clientY - lt.y) < DOUBLE_TAP_DIST[type]) {
         doubleTapPointer = e.pointerId;
         handleDoubleTap(found);
         return;
       }
+      ptrRec.isTap = true;
+      ptrRec.mol = found;
 
       if (found) {
         state.draggedMol = found;
@@ -2260,6 +2279,7 @@
         const d = Math.hypot(e.clientX - state.downScreen.x, e.clientY - state.downScreen.y);
         if (d < DRAG_SLOP[ptr.type]) return;
         state.dragMoved = true;
+        ptr.moved = true;
         if (state.isPanning) { state.panStart.x = e.clientX; state.panStart.y = e.clientY; }
       }
 
@@ -2285,7 +2305,10 @@
 
     const onUp = (e) => {
       if (!state.pointers.has(e.pointerId)) return;
+      const rec = state.pointers.get(e.pointerId);
       state.pointers.delete(e.pointerId);
+      if (rec.type === 'pen') lastPenUp = Date.now();
+      lastUpInfo = { type: rec.type, tap: rec.isTap && !rec.moved };
       try { wrapper.releasePointerCapture(e.pointerId); } catch (_) { /* 이미 해제됨 */ }
 
       if (state.isPinching) {
@@ -2310,22 +2333,47 @@
         if (!checkAndPerformMagneticSnap(mol)) explainNoBond(mol);
       }
 
-      // 움직이지 않고 뗀 탭만 더블탭 판정 기준으로 기록
-      if (!state.drawMode && !state.dragMoved) {
-        state.lastTap = { time: Date.now(), mol, x: e.clientX, y: e.clientY };
-      } else {
-        state.lastTap = { time: 0, mol: null, x: 0, y: 0 };
+      // 움직이지 않고 뗀 탭만 더블탭 판정 기준으로 기록 (같은 입력 종류의 기록만 바꿈)
+      //  - iPad가 손바닥 등을 취소(pointercancel)한 경우는 탭 기록을 건드리지 않음
+      if (e.type === 'pointerup') {
+        if (!state.drawMode && !state.dragMoved && rec.isTap) {
+          recordTap(rec.type, mol, e.clientX, e.clientY, rec.downTime);
+        } else {
+          delete state.lastTaps[rec.type];
+        }
+      } else if (rec.isTap && !state.dragMoved && !state.drawMode) {
+        // 펜슬 탭이 '뗌' 대신 '취소'로 끝나도 탭으로 인정
+        recordTap(rec.type, mol, e.clientX, e.clientY, rec.downTime);
       }
       endInteraction(true);
     };
 
-    // 보조: 브라우저가 dblclick을 보내는 경우 (위 판정이 놓친 경우에만 처리)
-    wrapper.addEventListener('dblclick', (e) => {
-      if (state.drawMode || Date.now() - lastDoubleHandled < 700) return;
+    // 보조 1: 브라우저가 dblclick을 보내는 경우 (위 판정이 놓친 경우에만 처리)
+    const molAtClient = (e) => {
       const s = clientToScreen(e.clientX, e.clientY);
       const wc = screenToWorld(s.x, s.y);
-      const mol = findMolAt(wc.x, wc.y);
+      return findMolAt(wc.x, wc.y);
+    };
+    wrapper.addEventListener('dblclick', (e) => {
+      if (state.drawMode || Date.now() - lastDoubleHandled < 700) return;
+      const mol = molAtClient(e);
       if (mol) handleDoubleTap(mol);
+    });
+
+    // 보조 2: iPad Safari는 펜슬 탭마다 click을 보냄 → 같은 분자를 연달아 두 번 click하면 더블탭으로 처리
+    //  (위 판정이 이미 처리했다면 건너뜀)
+    wrapper.addEventListener('click', (e) => {
+      if (state.drawMode) return;
+      // 펜슬로 '움직이지 않고 톡 친' 경우에만 (마우스 느린 클릭·드래그 후 click은 제외)
+      if (lastUpInfo.type !== 'pen' || !lastUpInfo.tap) { lastClick = { time: 0, mol: null }; return; }
+      const now = Date.now();
+      if (now - lastDoubleHandled < 700) { lastClick = { time: 0, mol: null }; return; }
+      const mol = molAtClient(e);
+      if (mol && mol === lastClick.mol && now - lastClick.time < 800) {
+        handleDoubleTap(mol);
+        return;
+      }
+      lastClick = { time: now, mol };
     });
 
     window.addEventListener('pointermove', onMove);
@@ -2359,7 +2407,7 @@
     state.currentStroke = null;
     state.laserStrokes = [];
     state.recentSplits = [];
-    state.lastTap = { time: 0, mol: null, x: 0, y: 0 };
+    state.lastTaps = {};
 
     if (ws) {
       state.molecules = ws.molecules;
