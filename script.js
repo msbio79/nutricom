@@ -2155,10 +2155,17 @@
     let lastDoubleHandled = 0;
     let lastClick = { time: 0, mol: null };
     let lastUpInfo = { type: '', tap: false };
-    const handleDoubleTap = (mol) => {
+    let lastStylus = { time: 0, mol: null, x: 0, y: 0 }; // 터치 이벤트로 본 마지막 펜슬 탭
+    let lastDoublePos = { x: -1e9, y: -1e9 };
+    // 같은 탭이 포인터·터치 두 경로로 동시에 들어온 것인가 (0.35초 안, 같은 위치)
+    const sameTapAsDouble = (x, y) =>
+      Date.now() - lastDoubleHandled < 350 && Math.hypot(x - lastDoublePos.x, y - lastDoublePos.y) < 60;
+    const handleDoubleTap = (mol, x, y) => {
       lastDoubleHandled = Date.now();
+      lastDoublePos = { x: x === undefined ? -1e9 : x, y: y === undefined ? -1e9 : y };
       clearTaps();
       lastClick = { time: 0, mol: null };
+      lastStylus = { time: 0, mol: null, x: 0, y: 0 };
       stopAutoPlay();
       if (!separateMoleculeBonds(mol)) removeMolecule(mol);
     };
@@ -2195,6 +2202,12 @@
       state.pointers.set(e.pointerId, ptrRec);
       try { wrapper.setPointerCapture(e.pointerId); } catch (_) { /* 지원하지 않는 환경 */ }
 
+      // 같은 펜슬 탭을 터치 이벤트 경로가 방금 더블탭으로 처리했다면, 이 탭은 드래그 등으로 쓰지 않음
+      if (type === 'pen' && !state.drawMode && sameTapAsDouble(e.clientX, e.clientY)) {
+        doubleTapPointer = e.pointerId;
+        return;
+      }
+
       // 두 손가락: 진행 중이던 드래그/필기를 취소하고 핀치 줌 & 이동
       if (type === 'touch' && touchPoints().length === 2) {
         endInteraction(false);
@@ -2229,7 +2242,7 @@
           (now - lt.up < DOUBLE_TAP_UP_MS[type] || now - lt.down < DOUBLE_TAP_DOWN_MS[type]) &&
           Math.hypot(e.clientX - lt.x, e.clientY - lt.y) < DOUBLE_TAP_DIST[type]) {
         doubleTapPointer = e.pointerId;
-        handleDoubleTap(found);
+        handleDoubleTap(found, e.clientX, e.clientY);
         return;
       }
       ptrRec.isTap = true;
@@ -2357,7 +2370,7 @@
     wrapper.addEventListener('dblclick', (e) => {
       if (state.drawMode || Date.now() - lastDoubleHandled < 700) return;
       const mol = molAtClient(e);
-      if (mol) handleDoubleTap(mol);
+      if (mol) handleDoubleTap(mol, e.clientX, e.clientY);
     });
 
     // 보조 2: iPad Safari는 펜슬 탭마다 click을 보냄 → 같은 분자를 연달아 두 번 click하면 더블탭으로 처리
@@ -2370,15 +2383,85 @@
       if (now - lastDoubleHandled < 700) { lastClick = { time: 0, mol: null }; return; }
       const mol = molAtClient(e);
       if (mol && mol === lastClick.mol && now - lastClick.time < 800) {
-        handleDoubleTap(mol);
+        handleDoubleTap(mol, e.clientX, e.clientY);
         return;
       }
       lastClick = { time: now, mol };
     });
 
+    // ------------------------------------------------------------------------
+    // iPad 애플 펜슬 대응 (터치 이벤트 경로)
+    //  - iPad Safari는 펜슬로 빠르게 두 번 탭하면 두 번째 탭을 자체 동작(확대·선택 등)으로 가져가
+    //    웹페이지에 전달하지 않는 경우가 있음 → 3번 탭해야 반응하는 원인
+    //  - touchstart에서 기본 동작을 막으면 Safari가 탭을 가져가지 않음
+    //    (pointerdown의 preventDefault만으로는 이 동작이 꺼지지 않음)
+    //  - 동시에, 펜슬 터치(touchType === 'stylus')만으로도 더블탭을 따로 판정
+    // ------------------------------------------------------------------------
+    const STYLUS_DOUBLE_MS = 900, STYLUS_DOUBLE_DIST = 50, STYLUS_SLOP = 12;
+    let stylusStart = null;
+    const stylusTouch = (list) => Array.from(list).find(t => t.touchType === 'stylus');
+
+    wrapper.addEventListener('touchstart', (e) => {
+      if (e.cancelable) e.preventDefault();
+      const t = stylusTouch(e.changedTouches);
+      if (!t || state.drawMode) { stylusStart = null; return; }
+      stylusStart = { x: t.clientX, y: t.clientY, moved: false };
+      const now = Date.now();
+      if (sameTapAsDouble(t.clientX, t.clientY)) return; // 포인터 경로가 이 탭을 이미 처리함
+      const mol = molAtClient(t);
+      if (mol && mol === lastStylus.mol && now - lastStylus.time < STYLUS_DOUBLE_MS &&
+          Math.hypot(t.clientX - lastStylus.x, t.clientY - lastStylus.y) < STYLUS_DOUBLE_DIST) {
+        handleDoubleTap(mol, t.clientX, t.clientY);
+        return;
+      }
+      lastStylus = { time: now, mol, x: t.clientX, y: t.clientY };
+    }, { passive: false });
+
+    wrapper.addEventListener('touchmove', (e) => {
+      if (e.cancelable) e.preventDefault();
+      const t = stylusTouch(e.changedTouches);
+      if (t && stylusStart && Math.hypot(t.clientX - stylusStart.x, t.clientY - stylusStart.y) > STYLUS_SLOP) {
+        stylusStart.moved = true;
+      }
+    }, { passive: false });
+
+    wrapper.addEventListener('touchend', (e) => {
+      const t = stylusTouch(e.changedTouches);
+      // 끌어서 옮긴 경우는 탭이 아니므로 더블탭 기록에서 제외
+      if (t && stylusStart && stylusStart.moved) lastStylus = { time: 0, mol: null, x: 0, y: 0 };
+      if (t) stylusStart = null;
+    });
+
+    // 확인용 표시: 주소 끝에 ?debug 를 붙이면 화면 왼쪽 아래에 입력 신호 기록이 나타남
+    if (/[?&]debug\b/.test(location.search)) setupInputDebug(wrapper);
+
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
+  }
+
+  // 입력 신호 확인용 기록 (?debug) - 펜슬·손가락 입력이 실제로 어떻게 들어오는지 확인
+  function setupInputDebug(wrapper) {
+    const box = document.createElement('div');
+    box.style.cssText = 'position:absolute;left:10px;bottom:70px;z-index:60;max-width:340px;' +
+      'background:rgba(15,23,42,.85);color:#e2e8f0;font:11px/1.35 monospace;padding:6px 8px;' +
+      'border-radius:8px;pointer-events:none;white-space:pre;';
+    document.getElementById('main-area').appendChild(box);
+    const lines = [];
+    let t0 = 0;
+    const add = (s) => {
+      const now = Date.now();
+      if (!t0 || now - t0 > 3000) { t0 = now; lines.push('──────'); }
+      lines.push(`${String(now - t0).padStart(5)}ms ${s}`);
+      while (lines.length > 18) lines.shift();
+      box.textContent = lines.join('\n');
+    };
+    ['pointerdown', 'pointerup', 'pointercancel'].forEach(type =>
+      wrapper.addEventListener(type, e => add(`${type} ${e.pointerType} #${e.pointerId}`), true));
+    ['touchstart', 'touchend', 'touchcancel'].forEach(type =>
+      wrapper.addEventListener(type, e => add(`${type} ${Array.from(e.changedTouches).map(t => t.touchType || 'direct').join(',')}`), true));
+    ['click', 'dblclick'].forEach(type => wrapper.addEventListener(type, () => add(type), true));
+    add('입력 기록 시작');
   }
 
   // --------------------------------------------------------------------------

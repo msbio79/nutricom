@@ -1185,3 +1185,10 @@ body.theme-dark .preset-btn.active {
   color: #ffffff;
   box-shadow: 0 0 8px rgba(239, 68, 68, 0.7);
 }
+
+/* iPad: 펜슬·손가락 탭이 길게 누르기 메뉴·텍스트 선택으로 넘어가지 않도록 */
+#canvas-wrapper {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
